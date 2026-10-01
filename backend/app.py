@@ -29,6 +29,13 @@ from .providers import ExtractionUnavailable, Settings, extract_live, parse_extr
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MAX_BYTES = 10 * 1024 * 1024
 SUPPORTED = ["application/pdf", "image/png", "image/jpeg"]
+# History exposes only the payload keys each event type is known to write.
+EVENT_PAYLOAD_KEYS = {
+    "extraction": ("provider", "filename", "warnings"),
+    "correction": ("changes",),
+    "approval": ("status_from", "status_to", "supplier_id"),
+    "payment": ("status_from", "status_to"),
+}
 
 
 class DuplicateInvoice(Exception):
@@ -190,6 +197,21 @@ class Store:
                     payload["supplier_id"] = supplier_id
                 self.event(connection, record["id"], event_type, payload)
 
+    def history(self, invoice_id: str) -> list[dict]:
+        with self.connect() as connection:
+            rows = connection.execute("SELECT id, event_type, occurred_at, payload_json FROM invoice_events WHERE invoice_id = ? ORDER BY occurred_at ASC, id ASC", (invoice_id,)).fetchall()
+        events = []
+        for row in rows:
+            try:
+                payload = json.loads(row["payload_json"])
+            except ValueError:
+                payload = {}
+            if not isinstance(payload, dict):
+                payload = {}
+            keys = EVENT_PAYLOAD_KEYS.get(row["event_type"], ())
+            events.append({"id": row["id"], "event_type": row["event_type"], "occurred_at": row["occurred_at"], "payload": {key: payload[key] for key in keys if key in payload}})
+        return events
+
     def suppliers(self) -> list[dict]:
         with self.connect() as connection:
             return [dict(row) for row in connection.execute("SELECT s.name, s.ice, count(i.id) AS invoice_count FROM suppliers s JOIN invoices i ON i.supplier_id=s.id GROUP BY s.id ORDER BY s.name COLLATE NOCASE")]
@@ -325,6 +347,11 @@ def create_app(settings: Settings | None = None, transport: httpx.AsyncBaseTrans
     @application.get("/api/invoices/{invoice_id}")
     def get_invoice(invoice_id: str):
         return present(store.get(invoice_id))
+
+    @application.get("/api/invoices/{invoice_id}/history")
+    def invoice_history(invoice_id: str):
+        store.get(invoice_id)
+        return {"invoice_id": invoice_id, "events": store.history(invoice_id)}
 
     @application.patch("/api/invoices/{invoice_id}")
     def update_invoice(invoice_id: str, fields: EditableFields):

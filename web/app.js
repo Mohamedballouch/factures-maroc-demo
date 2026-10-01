@@ -5,6 +5,9 @@ const providerLabels = {demo: 'Exemples sans LLM', anthropic: 'Claude · extract
 const evidenceLabels = {supplier_name:'Fournisseur',invoice_number:'Numéro de facture',invoice_date:'Date',subtotal_ht:'Total HT',tax_amount:'Taxes',total_ttc:'Total TTC'};
 const editableFields = ['supplier_name','supplier_ice','invoice_number','invoice_date','due_date','currency','subtotal_ht','tax_amount','total_ttc','category','description','notes'];
 const amountFields = ['subtotal_ht','tax_amount','total_ttc'];
+const fieldLabels = {supplier_name:'Fournisseur',supplier_ice:'ICE du fournisseur',invoice_number:'Numéro de facture',invoice_date:'Date de facture',due_date:'Échéance',currency:'Devise',subtotal_ht:'Total HT',tax_amount:'Taxes',total_ttc:'Total TTC',category:'Catégorie',description:'Description',notes:'Notes'};
+const eventLabels = {extraction:'Extraction',correction:'Correction',approval:'Validation',payment:'Paiement renseigné'};
+const historyTime = new Intl.DateTimeFormat('fr-FR',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Casablanca'});
 const reviewDialog = $('review-dialog');
 const settingsDialog = $('settings-dialog');
 const form = $('invoice-form');
@@ -14,6 +17,7 @@ let listController = null;
 let searchTimer = null;
 let busy = false;
 let previousFocus = null;
+let historyRequest = 0;
 
 function el(tag, className, content) {
   const node = document.createElement(tag);
@@ -210,6 +214,65 @@ function renderInvoice(invoice) {
   const entries=Object.entries(invoice.evidence || {}).filter(([,value])=>value !== null && value !== '');
   if(!entries.length){evidence.append(el('dd','','Aucun extrait détaillé fourni par le modèle.'));}
   else entries.forEach(([key,value])=>{evidence.append(el('dt','',evidenceLabels[key] || key),el('dd','',value));});
+  loadHistory(invoice.id);
+}
+function shown(value) {
+  return value === null || value === undefined || value === '' ? 'Non renseigné' : String(value);
+}
+function eventTime(value) {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.valueOf()) ? shown(value) : historyTime.format(parsed);
+}
+function statusChange(payload) {
+  return `${statusLabels[payload.status_from] || shown(payload.status_from)} → ${statusLabels[payload.status_to] || shown(payload.status_to)}`;
+}
+function historyState(text, kind='', retryId=null) {
+  const state=$('history-state');
+  state.className=`history-state ${kind}`;
+  state.replaceChildren();
+  if(text)state.append(el('span','',text));
+  if(retryId){const retry=el('button','','Réessayer');retry.type='button';retry.addEventListener('click',()=>loadHistory(retryId));state.append(retry);}
+}
+function renderHistory(events) {
+  const list=$('history-list');list.replaceChildren();
+  if(!events.length){historyState('Aucun événement enregistré');return;}
+  historyState('');
+  events.forEach(event=>{
+    const payload=event.payload && typeof event.payload==='object' ? event.payload : {};
+    const item=el('li',`history-${event.event_type}`);
+    const head=el('div','history-head');
+    const time=el('time','',eventTime(event.occurred_at));time.dateTime=String(event.occurred_at || '');
+    head.append(el('strong','',eventLabels[event.event_type] || 'Événement'),time);item.append(head);
+    if(event.event_type==='extraction'){
+      item.append(el('p','',payload.provider==='demo' ? 'Mode démonstration — exemple fictif, sans LLM' : `Mode : ${providerLabels[payload.provider] || shown(payload.provider)}`));
+      if(payload.filename)item.append(el('p','',`Document : ${payload.filename}`));
+      const warnings=Array.isArray(payload.warnings)?payload.warnings:[];
+      if(warnings.length){item.append(el('p','','Alertes à l’extraction :'));const ul=el('ul');warnings.forEach(w=>ul.append(el('li','',shown(w))));item.append(ul);}
+    } else if(event.event_type==='correction'){
+      const changes=Object.entries(payload.changes && typeof payload.changes==='object' ? payload.changes : {});
+      if(!changes.length)item.append(el('p','','Aucun champ modifié.'));
+      else{const ul=el('ul');changes.forEach(([key,change])=>ul.append(el('li','',`${fieldLabels[key] || key} : ${shown(change?.before)} → ${shown(change?.after)}`)));item.append(ul);}
+    } else if(event.event_type==='approval'){
+      item.append(el('p','',`Statut : ${statusChange(payload)}`));
+    } else if(event.event_type==='payment'){
+      item.append(el('p','',`Statut : ${statusChange(payload)}`),el('p','','Suivi renseigné manuellement, aucune transaction bancaire.'));
+    }
+    list.append(item);
+  });
+}
+async function loadHistory(id) {
+  const request=++historyRequest;
+  $('history-list').replaceChildren();
+  historyState('Chargement de l’historique…','loading');
+  try{
+    const data=await api(`/api/invoices/${encodeURIComponent(id)}/history`);
+    // Ignore late responses for another invoice or an older request.
+    if(request!==historyRequest || data?.invoice_id!==currentInvoice?.id)return;
+    renderHistory(Array.isArray(data.events)?data.events:[]);
+  } catch(error){
+    if(request!==historyRequest || id!==currentInvoice?.id)return;
+    historyState(`Historique indisponible : ${friendlyError(error)}`,'error',id);
+  }
 }
 async function openInvoice(id, force=false) {
   if(busy && !force)return;
@@ -259,7 +322,7 @@ async function performAction(action) {
     message('review-message',friendlyError(error),'error');
     renderWarnings(Array.isArray(error.body?.errors)?error.body.errors:[]);
     // A correction may have saved successfully before approval was refused.
-    try{const refreshed=await api(`/api/invoices/${encodeURIComponent(currentInvoice.id)}`);currentInvoice=refreshed;await loadInvoices();}catch{}
+    try{const refreshed=await api(`/api/invoices/${encodeURIComponent(currentInvoice.id)}`);currentInvoice=refreshed;loadHistory(refreshed.id);await loadInvoices();}catch{}
   } finally{setBusy(false);}
 }
 $('upload-button').addEventListener('click',()=>$('file-input').click());

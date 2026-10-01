@@ -254,3 +254,63 @@ def test_supplier_names_collapse_whitespace_and_events_persist(setup):
         events = connection.execute("SELECT invoice_id,event_type FROM invoice_events").fetchall()
     assert len(events) == 4
     assert set(row[0] for row in events) == {first["id"], second["id"]}
+
+
+def event_count(application):
+    with application.state.store.connect() as connection:
+        return connection.execute("SELECT count(*) FROM invoice_events").fetchone()[0]
+
+
+def test_history_lists_events_in_order_with_exact_corrections(setup):
+    client, application, settings, _ = setup
+    invoice = import_invoice(client)
+    assert client.patch(f"/api/invoices/{invoice['id']}", json={"supplier_name": "Atlas Corrigé", "due_date": "2026-10-01"}).status_code == 200
+    assert client.post(f"/api/invoices/{invoice['id']}/approve").status_code == 200
+    assert client.post(f"/api/invoices/{invoice['id']}/payment").status_code == 200
+    before = event_count(application)
+    response = client.get(f"/api/invoices/{invoice['id']}/history")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["invoice_id"] == invoice["id"]
+    events = body["events"]
+    assert [e["event_type"] for e in events] == ["extraction", "correction", "approval", "payment"]
+    assert [e["occurred_at"] for e in events] == sorted(e["occurred_at"] for e in events)
+    assert all(set(e) == {"id", "event_type", "occurred_at", "payload"} for e in events)
+    assert events[0]["payload"] == {"provider": "demo", "filename": "demo.pdf", "warnings": ["Échéance absente : vérifier le document."]}
+    assert events[1]["payload"] == {"changes": {"supplier_name": {"before": "Atlas Fictif", "after": "Atlas Corrigé"}, "due_date": {"before": None, "after": "2026-10-01"}}}
+    assert events[2]["payload"]["status_from"] == "pending_review" and events[2]["payload"]["status_to"] == "validated" and events[2]["payload"]["supplier_id"]
+    assert events[3]["payload"] == {"status_from": "validated", "status_to": "paid"}
+    assert event_count(application) == before
+    for method in ("post", "patch", "delete"):
+        assert getattr(client, method)(f"/api/invoices/{invoice['id']}/history").status_code == 405
+    assert event_count(application) == before
+    with TestClient(create_app(settings)) as restarted:
+        assert restarted.get(f"/api/invoices/{invoice['id']}/history").json() == body
+
+
+def test_history_isolation_unknown_empty_tie_order_and_no_secret(setup):
+    client, application, settings, _ = setup
+    first = import_invoice(client)
+    store = application.state.store
+    second = store.insert(pdf(2), "second.pdf", "application/pdf", ".pdf", parse_extraction(json.dumps(fields(invoice_number="DEMO-002"))), "demo")
+    client.patch(f"/api/invoices/{second['id']}", json={"notes": "Vu"})
+    first_events = client.get(f"/api/invoices/{first['id']}/history").json()
+    second_events = client.get(f"/api/invoices/{second['id']}/history").json()
+    assert first_events["invoice_id"] == first["id"] and second_events["invoice_id"] == second["id"]
+    assert [e["event_type"] for e in first_events["events"]] == ["extraction"]
+    assert [e["event_type"] for e in second_events["events"]] == ["extraction", "correction"]
+    assert not {e["id"] for e in first_events["events"]} & {e["id"] for e in second_events["events"]}
+    assert client.get("/api/invoices/inconnue/history").status_code == 404
+    with store.connect() as connection:
+        connection.execute("DELETE FROM invoice_events WHERE invoice_id = ?", (second["id"],))
+        stamp = "2026-09-01T10:00:00+00:00"
+        for event_id in ("bbbb", "aaaa", "cccc"):
+            connection.execute("INSERT INTO invoice_events VALUES (?, ?, 'correction', ?, ?)", (event_id, first["id"], stamp, json.dumps({"changes": {}, "api_key": "x"})))
+    assert client.get(f"/api/invoices/{second['id']}/history").json() == {"invoice_id": second["id"], "events": []}
+    tied = [e for e in client.get(f"/api/invoices/{first['id']}/history").json()["events"] if e["occurred_at"] == stamp]
+    assert [e["id"] for e in tied] == ["aaaa", "bbbb", "cccc"]
+    assert all(e["payload"] == {"changes": {}} for e in tied)
+    secret_settings = replace(settings, anthropic_key="sk-test-secret")
+    with TestClient(create_app(secret_settings)) as secret_client:
+        response = secret_client.get(f"/api/invoices/{first['id']}/history")
+        assert response.status_code == 200 and "sk-test-secret" not in response.text
