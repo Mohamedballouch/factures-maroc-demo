@@ -84,6 +84,7 @@ Une correction substantielle d’une facture validée la remet à relire. Une fa
 | `GET /api/config` | Configuration publique sans secrets |
 | `GET /api/invoices` | Liste, filtres, résumé global et fournisseurs |
 | `GET /api/invoices/{id}` | Fiche détaillée |
+| `GET /api/invoices/{id}/history` | Historique chronologique (lecture seule) des événements `invoice_events` |
 | `POST /api/invoices/upload` | Import et extraction |
 | `POST /api/demo` | Chargement idempotent des trois exemples |
 | `PATCH /api/invoices/{id}` | Corrections et notes |
