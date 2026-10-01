@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 .env
 data/
+.pdo/
 *.sqlite*
 .work/
 .playwright-cli/

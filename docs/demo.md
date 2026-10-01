@@ -15,7 +15,7 @@ Le mode **Démo** utilise des extractions préparées pour les trois documents f
 5. Pour un premier passage, partir d’un dossier de données neuf. Pour rejouer sans toucher à l’historique existant, arrêter le serveur puis le relancer avec un autre dossier :
 
 ```bash
-INVOICE_DATA_DIR=./data-atelier-2 python -m uvicorn backend.app:app --host 127.0.0.1 --port 5180
+INVOICE_DATA_DIR=./data/atelier-2 python -m uvicorn backend.app:app --host 127.0.0.1 --port 5180
 ```
 
 Ne pas charger les trois exemples avant de montrer l’import individuel : la détection des doublons retrouverait les documents déjà présents.

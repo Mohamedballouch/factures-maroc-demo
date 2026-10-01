@@ -23,6 +23,14 @@ Ouvrir http://localhost:5180. Le mode initial est **démonstration sans clé API
 
 Le statut **payé** est un suivi manuel ; il ne déclenche aucune transaction. Les sociétés et documents de ce dépôt sont fictifs.
 
+### Voir la démo
+
+[Vidéo MP4 du parcours réel dans l’interface (64 secondes)](demo/demo-factures-maroc.mp4). La vidéo montre le mode démonstration avec extraction préenregistrée, sans appel LLM.
+
+![Tableau de bord des factures fictives](demo/screenshots/tableau-factures.png)
+
+![Scan et champs à vérifier avant validation](demo/screenshots/extraction-a-verifier.png)
+
 ## Brancher un LLM réel
 
 Copier `.env.example` vers `.env` et choisir le fournisseur dans le backend. Pour Claude, renseigner `INVOICE_PROVIDER=anthropic`, `ANTHROPIC_API_KEY` et `ANTHROPIC_MODEL`. Pour Ollama local, renseigner `INVOICE_PROVIDER=ollama`, `OLLAMA_BASE_URL` et un `OLLAMA_MODEL` compatible avec la vision. Redémarrer le serveur après une modification.
@@ -40,6 +48,8 @@ L'extraction produit un brouillon, sa catégorie proposée, les extraits servant
 - [Installation et configuration des LLM](docs/configuration.md)
 - [Besoin fonctionnel détaillé](docs/issue-mvp.md)
 - [Pipeline PDO et consignes](docs/pdo.md)
+- [Ticket GitHub : historique des corrections et validations](https://github.com/Mohamedballouch/factures-maroc-demo/issues/1)
+- [Résultat du vrai run PDO et PR de l’historique](docs/resultat-pdo.md)
 
 Backend FastAPI, stockage SQLite, interface HTML/CSS/JavaScript servie par le même serveur. PDF, PNG et JPEG jusqu'à 10 Mio, PDF jusqu'à 10 pages. Python 3.12 permet de reproduire la préparation.
 
