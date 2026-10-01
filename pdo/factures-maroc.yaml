@@ -1,0 +1,82 @@
+name: factures-maroc
+version: "1.0"
+nodes:
+  - id: start
+    name: Start
+    type: start
+    outputs:
+      - { name: user_prompt, side: right }
+    view: { x: 80, y: 160 }
+  - id: issue_reader
+    name: Comprendre la demande
+    type: agent
+    isolated_worktree: false
+    inputs:
+      - { name: task, side: left }
+    outputs:
+      - { name: brief, side: right, instructions: "Issue URL, acceptance criteria and small implementation plan" }
+    view: { x: 340, y: 160 }
+  - id: implementer
+    name: Développer la fonction
+    type: agent
+    isolated_worktree: false
+    inputs:
+      - { name: task, side: left }
+    outputs:
+      - { name: changes, side: right, instructions: Changed files and checks actually performed }
+    view: { x: 620, y: 160 }
+  - id: reviewer
+    name: Vérifier les preuves
+    type: agent
+    isolated_worktree: false
+    inputs:
+      - { name: requirements, side: left }
+      - { name: changes, side: left }
+    outputs:
+      - name: review
+        side: right
+        frontmatter:
+          verdict:
+            allowed: [pass, fail]
+            type: enum
+        instructions: Independent checks with verdict and concrete evidence
+    view: { x: 900, y: 160 }
+  - id: manager_brief
+    name: Résumé pour le responsable
+    type: agent
+    isolated_worktree: false
+    inputs:
+      - { name: verified_work, side: left }
+    outputs:
+      - { name: brief, side: right, instructions: French manager-facing demo steps and limitations }
+    view: { x: 1180, y: 160 }
+  - id: end
+    name: End
+    type: end
+    inputs:
+      - { name: result, side: left }
+    view: { x: 1460, y: 160 }
+edges:
+  - source: { node: start, port: user_prompt }
+    target: { node: issue_reader, port: task }
+  - source: { node: issue_reader, port: brief }
+    target: { node: implementer, port: task }
+  - source: { node: issue_reader, port: brief }
+    target: { node: reviewer, port: requirements }
+  - source: { node: implementer, port: changes }
+    target: { node: reviewer, port: changes }
+  - source: { node: reviewer, port: review }
+    target: { node: implementer, port: task }
+    when:
+      verdict: { eq: fail }
+  - source: { node: reviewer, port: review }
+    target: { node: manager_brief, port: verified_work }
+    when:
+      verdict: { eq: pass }
+  - source: { node: manager_brief, port: brief }
+    target: { node: end, port: result }
+loops:
+  - id: repair-loop
+    kind: bounded
+    members: [implementer, reviewer]
+    max_iter: 3

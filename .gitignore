@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+data/
+*.sqlite*
+.work/
+.playwright-cli/
+test-results/
+artifacts/
+!artifacts/.gitkeep

@@ -1,0 +1,79 @@
+[
+  {
+    "filename": "atlas-services.pdf",
+    "fields": {
+      "supplier_name": "Atlas Services Démo",
+      "supplier_ice": "900000000000001",
+      "invoice_number": "ATL-DEMO-2026-091",
+      "invoice_date": "2026-09-25",
+      "due_date": "2026-10-25",
+      "currency": "MAD",
+      "subtotal_ht": "4800.00",
+      "tax_amount": "960.00",
+      "total_ttc": "5760.00",
+      "category": "Services",
+      "description": "Maintenance du matériel de présentation et assistance atelier.",
+      "warnings": [],
+      "evidence": {
+        "supplier_name": "Atlas Services Démo",
+        "invoice_number": "Facture ATL-DEMO-2026-091",
+        "invoice_date": "Date de facture : 25/09/2026",
+        "subtotal_ht": "Total HT : 4 800,00 MAD",
+        "tax_amount": "Montant taxes : 960,00 MAD",
+        "total_ttc": "Total TTC : 5 760,00 MAD"
+      }
+    }
+  },
+  {
+    "filename": "bureau-casa.pdf",
+    "fields": {
+      "supplier_name": "Bureau Casa Démo",
+      "supplier_ice": "900000000000002",
+      "invoice_number": "BC-DEMO-2026-104",
+      "invoice_date": "2026-10-01",
+      "due_date": "2026-10-25",
+      "currency": "MAD",
+      "subtotal_ht": "2350.00",
+      "tax_amount": "470.00",
+      "total_ttc": "2820.00",
+      "category": "Matériel",
+      "description": "Fournitures de bureau : papier, carnets et accessoires de réunion.",
+      "warnings": [],
+      "evidence": {
+        "supplier_name": "Bureau Casa Démo",
+        "invoice_number": "Facture BC-DEMO-2026-104",
+        "invoice_date": "Date de facture : 01/10/2026",
+        "subtotal_ht": "Total HT : 2 350,00 MAD",
+        "tax_amount": "Montant taxes : 470,00 MAD",
+        "total_ttc": "Total TTC : 2 820,00 MAD"
+      }
+    }
+  },
+  {
+    "filename": "connexion-maroc.png",
+    "fields": {
+      "supplier_name": "Connexion Maroc Démo",
+      "supplier_ice": "900000000000003",
+      "invoice_number": "CM-DEMO-2026-010",
+      "invoice_date": "2026-10-01",
+      "due_date": null,
+      "currency": "MAD",
+      "subtotal_ht": "600.00",
+      "tax_amount": "120.00",
+      "total_ttc": "720.00",
+      "category": "Télécom",
+      "description": "Connexion internet de l’agence - septembre 2026.",
+      "warnings": [
+        "Échéance absente du document. À confirmer si nécessaire."
+      ],
+      "evidence": {
+        "supplier_name": "Connexion Maroc Démo",
+        "invoice_number": "Facture CM-DEMO-2026-010",
+        "invoice_date": "Date de facture : 01/10/2026",
+        "subtotal_ht": "Total HT : 600,00 MAD",
+        "tax_amount": "Montant taxes : 120,00 MAD",
+        "total_ttc": "Total TTC : 720,00 MAD"
+      }
+    }
+  }
+]
